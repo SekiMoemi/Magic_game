@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
     const dom = {
+        stageTitle: document.getElementById('stage-title'),
         gameBoard: document.getElementById('game-board'),
-        commandUi: document.getElementById('command-ui'),
+        commandStock: document.getElementById('command-stock'),
+        commandSlots: document.getElementById('command-slots'),
         executeButton: document.getElementById('execute-button'),
         resetButton: document.getElementById('reset-button'),
         directionIndicator: document.getElementById('bird-direction-indicator'),
@@ -11,64 +13,109 @@ document.addEventListener('DOMContentLoaded', () => {
         tutorialCloseButton: document.getElementById('tutorial-close-button'),
         gameOverOverlay: document.getElementById('game-over-overlay'),
         gameOverMessage: document.getElementById('game-over-message'),
-        retryButton: document.getElementById('retry-button'),
+        retryButtonModal: document.getElementById('retry-button-modal'),
+        nextStageButton: document.getElementById('next-stage-button'),
     };
 
     // --- Game Constants ---
-    const GRID_SIZE = 5;
     const ANIMATION_STEP_DURATION = 500; // ms for one move
-    const BIRD_SPRITES = { // Using emojis as placeholders for 8-direction sprites
-        0: '🐦', 45: '🐦', 90: '🐦', 135: '🐦', 180: '🐦', 225: '🐦', 270: '🐦', 315: '🐦'
+    const COMMAND_MAP = {
+        'UP': { symbol: '↑', type: 'forward' },
+        'RIGHT45': { symbol: '↗', type: 'right45' },
+        'RIGHT90': { symbol: '→', type: 'right90' },
+        'LEFT45': { symbol: '↖', type: 'left45' },
+        'LEFT90': { symbol: '←', type: 'left90' },
     };
-    const DIRECTION_ARROWS = {0: '↑', 45: '↗', 90: '→', 135: '↘', 180: '↓', 225: '↙', 270: '←', 315: '↖'};
+
+    // --- Stage Data ---
+    const STAGES = [
+        {
+            id: 1,
+            name: "はじまりの道",
+            gridSize: [5, 5],
+            initialWizardPos: [4, 2], // [row, col]
+            initialBirdDirection: 0, // 0=Up
+            enemyPos: [1, 2],
+            wallPositions: [], // No walls for the first stage
+            availableCommands: ['UP', 'UP', 'UP', 'RIGHT90'], // Provide one extra command
+            commandSlotCount: 3,
+            // Solution: ['UP', 'UP', 'UP']
+        },
+        {
+            id: 2,
+            name: "斜め移動の試練",
+            gridSize: [5, 5],
+            initialWizardPos: [4, 0],
+            initialBirdDirection: 0,
+            enemyPos: [0, 4],
+            // Walls are placed to block direct paths and force a specific route.
+            wallPositions: [[3, 1], [2, 3], [0, 2], [2, 0]],
+            availableCommands: ['UP', 'UP', 'UP', 'RIGHT45', 'RIGHT45', 'LEFT90'],
+            commandSlotCount: 5,
+            // Solution: ['UP', 'RIGHT45', 'UP', 'RIGHT45', 'UP']
+        }
+    ];
 
     // --- Game State ---
-    const stage = {
-        playerStartPos: { x: 2, y: 4 },
-        enemyPos: { x: 2, y: 2 },
-        wallPositions: [
-            { x: 1, y: 1 }, { x: 3, y: 1 },
-            { x: 0, y: 2 }, { x: 4, y: 2 },
-            { x: 1, y: 4 }, { x: 3, y: 4 }
-        ],
-        initialCommands: ['forward', 'right45', 'right90', 'left45', 'left90']
-    };
-
-    let bird = { x: -1, y: -1, direction: 0 };
+    let currentStageIndex = 0;
+    let bird = { x: 0, y: 0, direction: 0 };
     let gridCells = [];
     let isExecuting = false;
+    let draggedItem = null;
 
     // --- Main Initialization ---
-    initializeGame();
-
-    /**
-     * Sets up the entire game, board, and event listeners.
-     */
-    function initializeGame() {
-        createBoard();
+    function init() {
         setupEventListeners();
-        resetGame();
+        loadStage(currentStageIndex);
 
-        // Show tutorial on first visit
-        if (!localStorage.getItem('hasVisited')) {
+        if (!localStorage.getItem('hasVisited-v2.2')) { // Updated version key
             dom.tutorialOverlay.classList.remove('hidden');
-            localStorage.setItem('hasVisited', 'true');
+            localStorage.setItem('hasVisited-v2.2', 'true');
         }
     }
 
     /**
-     * Creates the grid cells and populates the game board.
+     * Loads a specific stage by its index.
+     * @param {number} stageIndex - The index of the stage to load.
      */
-    function createBoard() {
-        dom.gameBoard.innerHTML = ''; // Clear previous content
-        dom.gameBoard.appendChild(dom.birdElement); // Re-append bird
+    function loadStage(stageIndex) {
+        if (stageIndex >= STAGES.length) {
+            showGameOverModal("すべてのステージをクリアしました！おめでとう！", false);
+            dom.nextStageButton.classList.add('hidden');
+            return;
+        }
+        currentStageIndex = stageIndex;
+        const stage = STAGES[currentStageIndex];
+
+        isExecuting = false;
+        dom.executeButton.disabled = false;
+        dom.gameOverOverlay.classList.add('hidden');
+        dom.stageTitle.textContent = `ステージ ${stage.id}: ${stage.name}`;
+
+        createBoard(stage.gridSize);
+        populateBoard(stage);
+        createCommandUI(stage.availableCommands, stage.commandSlotCount);
+        
+        resetBirdState(stage);
+        drawPreview();
+    }
+
+    /**
+     * Creates the grid dynamically.
+     * @param {number[]} gridSize - An array [width, height].
+     */
+    function createBoard([width, height]) {
+        dom.gameBoard.innerHTML = '';
+        dom.gameBoard.appendChild(dom.birdElement);
+        dom.gameBoard.style.gridTemplateColumns = `repeat(${width}, 60px)`;
+        dom.gameBoard.style.gridTemplateRows = `repeat(${height}, 60px)`;
         gridCells = [];
-        for (let y = 0; y < GRID_SIZE; y++) {
-            for (let x = 0; x < GRID_SIZE; x++) {
+        for (let r = 0; r < height; r++) {
+            for (let c = 0; c < width; c++) {
                 const cell = document.createElement('div');
                 cell.classList.add('grid-cell');
-                cell.dataset.x = x;
-                cell.dataset.y = y;
+                cell.dataset.row = r;
+                cell.dataset.col = c;
                 dom.gameBoard.appendChild(cell);
                 gridCells.push(cell);
             }
@@ -76,200 +123,177 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Centralized event listener setup.
+     * Places player, enemy, and walls on the board.
+     * @param {object} stage - The current stage data.
      */
-    function setupEventListeners() {
-        dom.executeButton.addEventListener('click', executeCommands);
-        dom.resetButton.addEventListener('click', resetGame);
-        dom.retryButton.addEventListener('click', () => {
-            dom.gameOverOverlay.classList.add('hidden');
-            resetGame();
-        });
-        dom.tutorialCloseButton.addEventListener('click', () => {
-            dom.tutorialOverlay.classList.add('hidden');
-        });
-        setupCommandDragAndDrop();
+    function populateBoard(stage) {
+        const getCell = (r, c) => getCellByCoords(r, c);
+        getCell(stage.initialWizardPos[0], stage.initialWizardPos[1]).classList.add('player');
+        getCell(stage.enemyPos[0], stage.enemyPos[1]).classList.add('enemy');
+        stage.wallPositions.forEach(([r, c]) => getCell(r, c).classList.add('wall'));
     }
 
     /**
-     * Resets the game to its initial state for a new attempt.
+     * Creates the command stock and empty slots.
+     * @param {string[]} commands - Array of available command types.
+     * @param {number} slotCount - Number of command slots to create.
      */
-    function resetGame() {
-        isExecuting = false;
-        dom.executeButton.disabled = false;
-        dom.gameOverOverlay.classList.add('hidden');
+    function createCommandUI(commands, slotCount) {
+        dom.commandStock.innerHTML = '';
+        dom.commandSlots.innerHTML = '';
 
-        // Reset visual elements
-        gridCells.forEach(cell => {
-            cell.className = 'grid-cell';
-            cell.innerHTML = '';
+        commands.forEach(cmdKey => {
+            const commandEl = createCommandElement(cmdKey);
+            dom.commandStock.appendChild(commandEl);
         });
-        
-        stage.wallPositions.forEach(pos => getCell(pos.x, pos.y).classList.add('wall'));
-        getCell(stage.playerStartPos.x, stage.playerStartPos.y).classList.add('player');
-        getCell(stage.enemyPos.x, stage.enemyPos.y).classList.add('enemy');
 
-        // Reset bird state and position
-        bird.x = stage.playerStartPos.x;
-        bird.y = stage.playerStartPos.y;
-        bird.direction = 0; // Always start facing up
+        for (let i = 0; i < slotCount; i++) {
+            const slotEl = document.createElement('div');
+            slotEl.classList.add('command-slot');
+            dom.commandSlots.appendChild(slotEl);
+        }
+    }
+    
+    /**
+     * Resets the bird's state and visual position.
+     * @param {object} stage - The current stage data.
+     */
+    function resetBirdState(stage) {
+        const [row, col] = stage.initialWizardPos;
+        bird.x = col;
+        bird.y = row;
+        bird.direction = stage.initialBirdDirection;
         
         dom.birdElement.className = '';
         dom.birdElement.style.opacity = 1;
         positionBirdOnGrid();
         updateDirectionIndicator();
-        drawPreview();
     }
 
     /**
-     * Positions the bird element on the grid based on its state.
+     * Centralized event listener setup.
      */
-    function positionBirdOnGrid() {
-        const cell = getCell(bird.x, bird.y);
-        if (cell) {
-            dom.birdElement.style.left = `${cell.offsetLeft}px`;
-            dom.birdElement.style.top = `${cell.offsetTop}px`;
-            dom.birdElement.style.transform = `rotate(${bird.direction}deg)`;
-            dom.birdElement.innerText = BIRD_SPRITES[bird.direction] || '🐦';
+    function setupEventListeners() {
+        dom.executeButton.addEventListener('click', executeCommands);
+        dom.resetButton.addEventListener('click', () => loadStage(currentStageIndex));
+        dom.retryButtonModal.addEventListener('click', () => loadStage(currentStageIndex));
+        dom.nextStageButton.addEventListener('click', () => loadStage(currentStageIndex + 1));
+        dom.tutorialCloseButton.addEventListener('click', () => dom.tutorialOverlay.classList.add('hidden'));
+        
+        document.addEventListener('dragstart', handleDragStart);
+        document.addEventListener('dragend', handleDragEnd);
+        document.addEventListener('dragover', handleDragOver);
+        document.addEventListener('dragenter', handleDragEnter);
+        document.addEventListener('dragleave', handleDragLeave);
+        document.addEventListener('drop', handleDrop);
+    }
+
+    // --- Drag and Drop Handlers ---
+    function handleDragStart(e) {
+        if (e.target.classList.contains('command-arrow')) {
+            draggedItem = e.target;
+            setTimeout(() => e.target.classList.add('dragging'), 0);
+        }
+    }
+
+    function handleDragEnd() {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
+            draggedItem = null;
+            document.querySelectorAll('.over').forEach(el => el.classList.remove('over'));
+            drawPreview();
+        }
+    }
+
+    function handleDragOver(e) { e.preventDefault(); }
+
+    function handleDragEnter(e) {
+        const dropZone = e.target.closest('.command-slot, #command-stock');
+        if (dropZone) dropZone.classList.add('over');
+    }
+
+    function handleDragLeave(e) {
+        const dropZone = e.target.closest('.command-slot, #command-stock');
+        if (dropZone) dropZone.classList.remove('over');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        if (!draggedItem) return;
+
+        const dropZone = e.target.closest('#command-slots, #command-stock');
+        if (!dropZone) return;
+
+        if (dropZone.id === 'command-slots') {
+            const slot = e.target.closest('.command-slot');
+            if (slot) {
+                if (slot.children.length === 0) {
+                    slot.appendChild(draggedItem);
+                } else {
+                    const existingCommand = slot.children[0];
+                    draggedItem.parentElement.appendChild(existingCommand);
+                    slot.appendChild(draggedItem);
+                }
+            }
+        } else if (dropZone.id === 'command-stock') {
+            dropZone.appendChild(draggedItem);
         }
     }
 
     /**
-     * Utility to get a cell element at specific coordinates.
-     * @param {number} x - The x-coordinate.
-     * @param {number} y - The y-coordinate.
-     * @returns {HTMLElement|null} The cell element or null if out of bounds.
+     * Creates a draggable command element.
+     * @param {string} cmdKey - The key of the command (e.g., 'UP').
+     * @returns {HTMLElement} The created command element.
      */
-    function getCell(x, y) {
-        if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return null;
-        return gridCells[y * GRID_SIZE + x];
+    function createCommandElement(cmdKey) {
+        const command = COMMAND_MAP[cmdKey];
+        const el = document.createElement('div');
+        el.classList.add('command-arrow');
+        el.dataset.command = command.type;
+        el.textContent = command.symbol;
+        el.draggable = true;
+        return el;
     }
 
     /**
-     * Updates the direction indicator UI with the correct arrow and rotation.
-     */
-    function updateDirectionIndicator() {
-        dom.directionIndicator.querySelector('p').textContent = DIRECTION_ARROWS[bird.direction] || '?';
-        dom.directionIndicator.style.transform = `rotate(${bird.direction}deg)`;
-    }
-
-    /**
-     * Sets up drag and drop functionality for command elements.
-     */
-    function setupCommandDragAndDrop() {
-        const commandArrows = dom.commandUi.querySelectorAll('.command-arrow');
-        let draggedItem = null;
-
-        commandArrows.forEach(item => {
-            item.addEventListener('dragstart', () => {
-                draggedItem = item;
-                setTimeout(() => item.classList.add('dragging'), 0);
-            });
-
-            item.addEventListener('dragend', () => {
-                setTimeout(() => draggedItem.classList.remove('dragging'), 0);
-                draggedItem = null;
-                drawPreview();
-            });
-        });
-
-        dom.commandUi.addEventListener('dragover', e => {
-            e.preventDefault();
-            const afterElement = getDragAfterElement(dom.commandUi, e.clientX);
-            if (draggedItem) {
-                if (afterElement == null) {
-                    dom.commandUi.appendChild(draggedItem);
-                } else {
-                    dom.commandUi.insertBefore(draggedItem, afterElement);
-                }
-            }
-        });
-    }
-
-    function getDragAfterElement(container, x) {
-        const draggableElements = [...container.querySelectorAll('.command-arrow:not(.dragging)')];
-        return draggableElements.reduce((closest, child) => {
-            const box = child.getBoundingClientRect();
-            const offset = x - box.left - box.width / 2;
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
-            } else {
-                return closest;
-            }
-        }, { offset: Number.NEGATIVE_INFINITY }).element;
-    }
-
-    /**
-     * Draws the projected path of the bird based on the current command order.
+     * Draws the projected path of the bird.
      */
     function drawPreview() {
         document.querySelectorAll('.preview-dot').forEach(dot => dot.remove());
+        const commands = [...dom.commandSlots.querySelectorAll('.command-arrow')].map(el => el.dataset.command);
+        if (commands.length === 0) return;
 
         let tempBird = { ...bird };
-        const commands = [...dom.commandUi.querySelectorAll('.command-arrow')].map(el => el.dataset.command);
-
+        
         for (const command of commands) {
-            const { nextX, nextY } = calculateNextStep(tempBird, command);
-            const cell = getCell(nextX, nextY);
+            const newDirection = calculateNewDirection(tempBird.direction, command);
+            const { nextX, nextY } = calculateNextPosition(tempBird.x, tempBird.y, newDirection);
+            
+            const cell = getCellByCoords(nextY, nextX);
+            if (!cell || cell.classList.contains('wall')) break;
 
-            if (!cell || cell.classList.contains('wall')) {
-                break; // Stop preview at a wall
-            }
-
-            tempBird.x = nextX;
-            tempBird.y = nextY;
-            tempBird.direction = calculateNewDirection(tempBird.direction, command);
-
+            tempBird = { x: nextX, y: nextY, direction: newDirection };
+            
             const dot = document.createElement('div');
             dot.classList.add('preview-dot');
             cell.appendChild(dot);
 
-            if (cell.classList.contains('enemy')) {
-                break; // Stop preview at the enemy
-            }
+            if (cell.classList.contains('enemy')) break;
         }
     }
 
     /**
-     * Calculates the bird's new direction based on a command.
-     * @param {number} currentDirection - The starting direction.
-     * @param {string} command - The command to apply.
-     * @returns {number} The new direction.
-     */
-    function calculateNewDirection(currentDirection, command) {
-        switch (command) {
-            case 'left90': return (currentDirection - 90 + 360) % 360;
-            case 'left45': return (currentDirection - 45 + 360) % 360;
-            case 'right45': return (currentDirection + 45) % 360;
-            case 'right90': return (currentDirection + 90) % 360;
-            default: return currentDirection;
-        }
-    }
-
-    /**
-     * Calculates the bird's next grid cell based on its state and a command.
-     * @param {{x: number, y: number, direction: number}} currentBird - The bird's current state.
-     * @param {string} command - The command to apply.
-     * @returns {{nextX: number, nextY: number}} The coordinates of the next cell.
-     */
-    function calculateNextStep(currentBird, command) {
-        const newDirection = calculateNewDirection(currentBird.direction, command);
-        const rad = newDirection * Math.PI / 180;
-        const nextX = currentBird.x + Math.round(Math.sin(rad));
-        const nextY = currentBird.y - Math.round(Math.cos(rad));
-        return { nextX, nextY };
-    }
-
-    /**
-     * Executes the entire command sequence with animations.
+     * Executes the command sequence with animations.
      */
     async function executeCommands() {
         if (isExecuting) return;
+        const commands = [...dom.commandSlots.querySelectorAll('.command-arrow')].map(el => el.dataset.command);
+        if (commands.length === 0) return;
+
         isExecuting = true;
         dom.executeButton.disabled = true;
+        dom.resetButton.disabled = true;
         document.querySelectorAll('.preview-dot').forEach(dot => dot.remove());
-
-        const commands = [...dom.commandUi.querySelectorAll('.command-arrow')].map(el => el.dataset.command);
 
         for (const command of commands) {
             const result = await executeSingleCommand(command);
@@ -282,26 +306,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         }
-        handleFailure('end'); // Finished commands without reaching the enemy
+        handleFailure('end');
     }
 
     /**
-     * Executes a single command step with animation.
-     * @param {string} command - The command to execute.
+     * Executes one command step with animation.
+     * @param {string} commandType - The type of command to execute.
      * @returns {Promise<{success: boolean, hitEnemy?: boolean}>}
      */
-    function executeSingleCommand(command) {
+    function executeSingleCommand(commandType) {
         return new Promise(resolve => {
-            // 1. Rotate
-            bird.direction = calculateNewDirection(bird.direction, command);
-            dom.birdElement.style.transform = `rotate(${bird.direction}deg)`;
-            dom.birdElement.innerText = BIRD_SPRITES[bird.direction] || '🐦';
+            bird.direction = calculateNewDirection(bird.direction, commandType);
+            positionBirdOnGrid();
             updateDirectionIndicator();
 
-            // 2. Move after a delay
             setTimeout(() => {
-                const { nextX, nextY } = calculateNextStep({ ...bird, direction: bird.direction }, 'forward'); // Move forward in the new direction
-                const nextCell = getCell(nextX, nextY);
+                const { nextX, nextY } = calculateNextPosition(bird.x, bird.y, bird.direction);
+                const nextCell = getCellByCoords(nextY, nextX);
 
                 if (!nextCell || nextCell.classList.contains('wall')) {
                     resolve({ success: false });
@@ -314,16 +335,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const hitEnemy = nextCell.classList.contains('enemy');
                 resolve({ success: true, hitEnemy });
-
             }, ANIMATION_STEP_DURATION / 2);
         });
     }
 
-    /**
-     * Handles the successful completion of the level.
-     */
+    // --- Game Logic Calculations ---
+    const calculateNewDirection = (dir, cmd) => (({ 'forward': 0, 'left90': -90, 'left45': -45, 'right45': 45, 'right90': 90 }[cmd] || 0) + dir + 360) % 360;
+
+    function calculateNextPosition(x, y, direction) {
+        const rad = direction * Math.PI / 180;
+        return { nextX: x + Math.round(Math.sin(rad)), nextY: y - Math.round(Math.cos(rad)) };
+    }
+
+    // --- Visual Updates ---
+    function positionBirdOnGrid() {
+        const cell = getCellByCoords(bird.y, bird.x);
+        if (cell) {
+            dom.birdElement.style.left = `${cell.offsetLeft}px`;
+            dom.birdElement.style.top = `${cell.offsetTop}px`;
+            dom.birdElement.style.transform = `rotate(${bird.direction}deg)`;
+        }
+    }
+
+    function updateDirectionIndicator() {
+        dom.directionIndicator.style.transform = `rotate(${bird.direction}deg)`;
+    }
+
+    // --- Game End Handlers ---
     function handleSuccess() {
-        const enemyCell = getCell(stage.enemyPos.x, stage.enemyPos.y);
+        const stage = STAGES[currentStageIndex];
+        const enemyCell = getCellByCoords(stage.enemyPos[0], stage.enemyPos[1]);
         const explosion = document.createElement('div');
         explosion.classList.add('explosion');
         enemyCell.appendChild(explosion);
@@ -331,34 +372,35 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             enemyCell.classList.remove('enemy');
             dom.birdElement.style.opacity = 0;
-            showGameOverModal('クリア！お見事です！');
+            showGameOverModal("クリア！お見事です！", true);
         }, 400);
     }
 
-    /**
-     * Handles any failure condition.
-     * @param {string} reason - The cause of the failure ('wall' or 'end').
-     */
     function handleFailure(reason) {
-        if (reason === 'wall') {
-            dom.birdElement.classList.add('puff');
-        }
-        getCell(stage.playerStartPos.x, stage.playerStartPos.y).classList.add('fail');
+        if (reason === 'wall') dom.birdElement.classList.add('puff');
+        
+        const stage = STAGES[currentStageIndex];
+        getCellByCoords(stage.initialWizardPos[0], stage.initialWizardPos[1]).classList.add('fail');
         
         const message = reason === 'wall' ? '失敗！壁に衝突しました。' : '失敗！敵に届きませんでした。';
-        
-        setTimeout(() => {
-            showGameOverModal(message);
-        }, 1000);
+        setTimeout(() => showGameOverModal(message, false), 1000);
     }
 
-    /**
-     * Displays the game over/success modal.
-     * @param {string} message - The message to display.
-     */
-    function showGameOverModal(message) {
+    function showGameOverModal(message, isSuccess) {
         dom.gameOverMessage.textContent = message;
+        dom.nextStageButton.classList.toggle('hidden', !isSuccess || currentStageIndex >= STAGES.length - 1);
         dom.gameOverOverlay.classList.remove('hidden');
+        dom.resetButton.disabled = false;
     }
 
+    // --- Utility Functions ---
+    function getCellByCoords(row, col) {
+        const stage = STAGES[currentStageIndex];
+        const [width, height] = stage.gridSize; // Note: width, height order
+        if (col < 0 || col >= width || row < 0 || row >= height) return null;
+        return gridCells[row * width + col];
+    }
+
+    // --- Start the game ---
+    init();
 });
