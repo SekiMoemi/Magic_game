@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>詠唱パズル・マジカルルート</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <h1 id="stage-title">詠唱パズル・マジカルルート</h1>
+        <div id="main-content">
+            <div id="game-board">
+                <!-- 鳥の要素: JSでアニメーション制御 -->
+                <div id="bird"></div>
+            </div>
+            <div id="status-ui">
+                <h3>ステータス</h3>
+                <div id="hp-display" title="プレイヤーHP">
+                    <!-- JSでHPを生成 -->
+                </div>
+                <div id="bird-direction-indicator" title="鳥の現在の向き">
+                    <!-- JSで鳥の画像を回転 -->
+                </div>
+            </div>
+        </div>
+        <div id="command-section">
+            <div class="command-area">
+                <h3>コマンドストック（ここからドラッグ）</h3>
+                <div id="command-stock" class="command-container">
+                    <!-- JSで利用可能なコマンドを生成 -->
+                </div>
+            </div>
+            <div class="command-area">
+                <h3>コマンドスロット（ここにドロップして詠唱順を決める）</h3>
+                <div id="command-slots" class="command-container">
+                    <!-- JSで空のスロットを生成 -->
+                </div>
+            </div>
+            <button id="execute-button">詠唱！</button>
+        </div>
+    </div>
+
+    <!-- チュートリアルモーダル -->
+    <div id="tutorial-overlay" class="hidden">
+        <div class="tutorial-modal">
+            <h2>ようこそ！「詠唱パズル・マジカルルート」へ</h2>
+            <p>あなたは魔法のルートを設計する“詠唱設計者”です。</p>
+            
+            <h3>ルール説明</h3>
+            <p><strong>「コマンドストック」</strong>から必要なコマンドを<strong>「コマンドスロット」</strong>にドラッグ＆ドロップで配置して、魔法のルートを完成させましょう！</p>
+            
+            <h4>コマンドは「回転＋前進」</h4>
+            <p>矢印は<strong>鳥の現在の向き</strong>を基準に「回転」し、その後「前進」します。</p>
+            <div class="tutorial-example">
+                <p>例：鳥が上（↑）を向いている時に「→」コマンドを実行すると...</p>
+                <p><strong>右に90度回転</strong>して右（→）を向き、<strong>1マス前進</strong>します。</p>
+            </div>
+
+            <h4>成功と失敗</h4>
+            <ul>
+                <li><strong>成功</strong>: スロットに配置したコマンドを使い、敵（👻）のマスに到達する。</li>
+                <li><strong>失敗</strong>: 壁（🧱）に衝突、画面外に出る、またはコマンドを使い切っても敵に到達しない。</li>
+            </ul>
+
+            <button id="tutorial-close-button">ゲームをはじめる</button>
+        </div>
+    </div>
+
+    <!-- ゲームオーバー画面 -->
+    <div id="game-over-overlay" class="hidden">
+        <div class="game-over-modal">
+            <h2 id="game-over-message"></h2>
+            <button id="next-stage-button" class="hidden">次のステージへ</button>
+            <button id="retry-button-modal">もう一度挑戦</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
