@@ -75,6 +75,28 @@ body {
 
 /* --- UI Elements --- */
 #status-ui { width: 180px; padding: 15px; background-color: #1b263b; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+
+#hp-display {
+    display: flex;
+    gap: 5px;
+    transition: transform 0.2s ease-in-out;
+}
+
+#hp-display .heart {
+    font-size: 24px;
+    color: #ff4757;
+    transition: color 0.3s, transform 0.3s;
+}
+
+#hp-display.hurt {
+    transform: scale(1.2);
+}
+
+#hp-display .heart.lost {
+    color: #555;
+    transform: scale(0.8);
+}
+
 #bird-direction-indicator { width: 80px; height: 80px; border: 2px solid #fca311; border-radius: 50%; background-color: #1f4068; transition: transform 0.3s ease-in-out; background-image: var(--bird-image); background-size: 60%; background-repeat: no-repeat; background-position: center; }
 
 /* --- Command Area --- */
@@ -117,7 +139,7 @@ body {
 .command-arrow.dragging { opacity: 0.4; transform: scale(1.1); cursor: grabbing; }
 
 /* --- Buttons --- */
-#execute-button, #reset-button, #retry-button-modal, #tutorial-close-button, #next-stage-button {
+#execute-button, #retry-button-modal, #tutorial-close-button, #next-stage-button {
     padding: 10px 25px;
     font-size: 18px;
     font-weight: bold;
@@ -130,7 +152,7 @@ body {
     margin-top: 5px;
 }
 
-#execute-button:hover, #reset-button:hover, #retry-button-modal:hover, #tutorial-close-button:hover, #next-stage-button:hover {
+#execute-button:hover, #retry-button-modal:hover, #tutorial-close-button:hover, #next-stage-button:hover {
     background-color: #ffc300;
     transform: scale(1.05);
 }
