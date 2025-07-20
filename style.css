@@ -1,0 +1,254 @@
+/* --- Global Styles --- */
+body {
+    font-family: 'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+    background-color: #1a1a2e;
+    color: #e0e1dd;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+}
+
+/* --- Game Layout --- */
+#game-container {
+    text-align: center;
+    background-color: #162447;
+    padding: 20px 30px;
+    border-radius: 15px;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
+    border: 1px solid #fca311;
+}
+
+#main-content {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* Align items to the top */
+    gap: 25px;
+    margin-top: 20px;
+}
+
+#game-board {
+    display: grid;
+    grid-template-columns: repeat(5, 60px);
+    grid-template-rows: repeat(5, 60px);
+    gap: 5px;
+    border: 3px solid #fca311;
+    background-color: #1f4068;
+    padding: 5px;
+    position: relative;
+}
+
+.grid-cell {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(224, 225, 221, 0.1);
+    border-radius: 5px;
+    position: relative;
+    z-index: 1;
+}
+
+/* --- Game Elements --- */
+.player::after, .player.fail::after {
+    content: '🧙';
+    font-size: 40px;
+    display: flex; justify-content: center; align-items: center;
+    width: 100%; height: 100%;
+    transition: transform 0.3s ease, content 0.3s ease;
+}
+
+.player.fail::after {
+    content: '😭';
+    transform: scale(1.2) rotate(-10deg);
+}
+
+.enemy::after {
+    content: '👻';
+    font-size: 40px;
+    display: flex; justify-content: center; align-items: center;
+    width: 100%; height: 100%;
+    transition: opacity 0.3s, transform 0.3s;
+}
+
+.wall {
+    background-color: #4b5d67;
+    background-image: url('https://www.transparenttextures.com/patterns/brick-wall.png');
+    content: '🧱'; /* Using emoji for wall texture */
+    font-size: 40px;
+    display: flex; justify-content: center; align-items: center;
+    color: transparent; /* Hide emoji if bg image loads */
+}
+
+/* --- Bird --- */
+#bird {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    font-size: 40px;
+    display: flex; justify-content: center; align-items: center;
+    z-index: 10;
+    transition: top 0.4s ease-in-out, left 0.4s ease-in-out, transform 0.3s ease-in-out, opacity 0.4s;
+    will-change: top, left, transform;
+}
+
+/* --- Effects --- */
+.preview-dot {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    background-color: #fca311;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    opacity: 0.6;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    transition: opacity 0.3s;
+}
+
+.explosion {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    background-color: #ffc300;
+    animation: explode 0.4s ease-out forwards;
+    z-index: 20;
+}
+
+@keyframes explode { from { transform: scale(0); opacity: 1; } to { transform: scale(2.5); opacity: 0; } }
+
+.puff {
+    animation: puff-out 0.4s ease-out forwards;
+}
+
+@keyframes puff-out { from { transform: scale(1); opacity: 1; } to { transform: scale(2); opacity: 0; } }
+
+/* --- UI Elements --- */
+#status-ui {
+    width: 180px;
+    padding: 15px;
+    background-color: #1b263b;
+    border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 15px;
+}
+
+#bird-direction-indicator {
+    width: 80px;
+    height: 80px;
+    border: 2px solid #fca311;
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 40px;
+    background-color: #1f4068;
+    transition: transform 0.3s ease-in-out;
+}
+
+#command-section {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #1b263b;
+    border-radius: 10px;
+}
+
+#command-ui {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.command-arrow {
+    width: 50px; height: 50px;
+    background-color: #fca311;
+    color: #162447;
+    border-radius: 10px;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 24px; font-weight: bold;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.command-arrow.dragging {
+    opacity: 0.5;
+    transform: scale(1.1);
+}
+
+#execute-button, #reset-button, #retry-button, #tutorial-close-button {
+    padding: 10px 25px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #162447;
+    background-color: #fca311;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+#execute-button:hover, #reset-button:hover, #retry-button:hover, #tutorial-close-button:hover {
+    background-color: #ffc300;
+    transform: scale(1.05);
+}
+
+#execute-button:disabled {
+    background-color: #555;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none;
+}
+
+/* --- Modals --- */
+.hidden { display: none !important; }
+
+#tutorial-overlay, #game-over-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+    animation: fade-in 0.3s ease-out;
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.tutorial-modal, .game-over-modal {
+    background-color: #1b263b;
+    padding: 30px 40px;
+    border-radius: 15px;
+    border: 2px solid #fca311;
+    max-width: 500px;
+    text-align: left;
+    line-height: 1.6;
+}
+
+.tutorial-modal h2, .game-over-modal h2 {
+    text-align: center;
+    color: #fca311;
+}
+
+.tutorial-example {
+    background-color: #1f4068;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    border-left: 4px solid #fca311;
+}
+
+.tutorial-modal ul {
+    list-style: none;
+    padding: 0;
+}
+
+.tutorial-modal li {
+    margin-bottom: 10px;
+}
+
+.game-over-modal {
+    text-align: center;
+}
