@@ -2,7 +2,7 @@
 :root {
     /* 画像差し込み用の変数を定義 */
     --bird-image: url('bird.png');
-    --wizard-image: '🧙'; /* 絵文字をデフォルトに */
+    --wizard-image: url('wizard.png'); /* 画像へのパス */
     --enemy-image: '👻';
     --wall-texture: url('https://www.transparenttextures.com/patterns/brick-wall.png');
 }
@@ -26,13 +26,45 @@ body {
 .grid-cell { width: 60px; height: 60px; background-color: rgba(224, 225, 221, 0.1); border-radius: 5px; position: relative; z-index: 1; }
 
 /* --- Game Elements (Player, Enemy, Wall) --- */
-.player::after, .player.fail::after { content: var(--wizard-image); font-size: 40px; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; transition: transform 0.3s ease, content 0.3s ease; }
-.player.fail::after { content: '😭'; transform: scale(1.2) rotate(-10deg); }
+.player::after, .player.fail::after {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-image: var(--wizard-image);
+    background-size: contain; /* 画像の比率を維持してセル内に収める */
+    background-repeat: no-repeat;
+    background-position: center;
+    transition: transform 0.3s ease, content 0.3s ease;
+}
+.player.fail::after {
+    content: '😭';
+    background-image: none; /* 失敗時は画像を非表示にする */
+    font-size: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transform: scale(1.2) rotate(-10deg);
+}
 .enemy::after { content: var(--enemy-image); font-size: 40px; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; transition: opacity 0.3s, transform 0.3s; }
 .wall { background-color: #4b5d67; background-image: var(--wall-texture); }
 
 /* --- Bird --- */
-#bird { position: absolute; width: 60px; height: 60px; background-image: var(--bird-image); background-size: contain; background-repeat: no-repeat; background-position: center; z-index: 10; transition: top 0.4s ease-in-out, left 0.4s ease-in-out, transform 0.3s ease-in-out, opacity 0.4s; will-change: top, left, transform, opacity; }
+#bird {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background-image: var(--bird-image);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: 10;
+    transition: top 0.4s ease-in-out, left 0.4s ease-in-out, transform 0.3s ease-in-out, opacity 0.4s;
+    will-change: top, left, transform, opacity;
+    /* Initially hidden */
+    opacity: 0;
+    pointer-events: none;
+}
 
 /* --- Effects --- */
 .preview-dot { position: absolute; width: 15px; height: 15px; background-color: #fca311; border: 2px solid #fff; border-radius: 50%; opacity: 0.6; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2; transition: opacity 0.3s; }
