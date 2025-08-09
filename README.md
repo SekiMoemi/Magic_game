@@ -1,3 +1,4 @@
+https://sekimoemi.github.io/Magic_game/
 ※ゲームの画面サイズが合わなければ、拡大・縮小で対応してください。
 
 ## 詠唱パズル・マジカルルート (Magic Puzzle: Magical Route)
